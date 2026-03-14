@@ -20,8 +20,18 @@ const blogRoutes     = require('./routes/blog');
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+// ─── HEALTH CHECK FIRST (before anything else) ────────────────────────────────
+// Must respond immediately so Railway healthcheck passes during startup
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Saffron API is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date(),
+  });
+});
+
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-// Allow requests from your frontend URL (Railway injects PORT, you set FRONTEND_URL)
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:3000',
@@ -30,7 +40,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS blocked: ${origin}`));
@@ -43,11 +52,8 @@ app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Rate limiting
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -69,16 +75,6 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/gallery',   galleryRoutes);
 app.use('/api/blog',      blogRoutes);
 
-// Health check — Railway uses this to confirm the app is running
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Saffron API is running',
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date(),
-  });
-});
-
 // ─── 404 & ERROR ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
@@ -92,12 +88,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── START ────────────────────────────────────────────────────────────────────
-(async () => {
-  await testConnection();
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🍊 Saffron API running on port ${PORT}`);
-    console.log(`📋 Environment : ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 CORS allowed: ${allowedOrigins.join(', ')}\n`);
+// ─── START SERVER FIRST, THEN CONNECT DB ─────────────────────────────────────
+// Railway healthcheck hits /api/health during startup.
+// We must be listening BEFORE the DB connection attempt.
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🍊 Saffron API listening on port ${PORT}`);
+  console.log(`📋 Environment : ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 CORS allowed: ${allowedOrigins.join(', ') || 'all'}\n`);
+
+  // Connect to DB after server is already up
+  testConnection().catch((err) => {
+    console.error('DB connection error:', err.message);
+    // Don't exit — let Railway see the app is running, DB may retry
   });
-})();
+});
