@@ -138,9 +138,8 @@ const getAllBookings = async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
-
-    const [rows] = await pool.execute(query, params);
+    query += ` LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+    const [rows] = await pool.query(query, params);
 
     // Total count
     const [countRows] = await pool.execute(

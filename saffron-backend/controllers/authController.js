@@ -327,10 +327,9 @@ const getAllUsers = async (req, res) => {
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
-
-    const [rows] = await pool.execute(query, params);
+    query += ' ORDER BY created_at DESC';
+    query += ` LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+    const [rows] = await pool.query(query, params);
 
     // Total count
     const [countRows] = await pool.execute(

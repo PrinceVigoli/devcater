@@ -31,6 +31,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+// Trust Railway/Heroku/Vercel proxy (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (Postman, mobile apps)

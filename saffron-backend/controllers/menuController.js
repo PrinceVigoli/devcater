@@ -11,9 +11,9 @@ const getAllMenuItems = async (req, res) => {
     if (category) { query += ' AND category = ?'; params.push(category); }
     if (search)   { query += ' AND name LIKE ?';  params.push(`%${search}%`); }
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ' ORDER BY category ASC, name ASC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
-    const [rows] = await pool.execute(query, params);
+    query += ' ORDER BY category ASC, name ASC';
+    query += ` LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+    const [rows] = await pool.query(query, params);
     const [countRows] = await pool.execute('SELECT COUNT(*) as total FROM menu_items WHERE 1=1');
     return res.json({ success: true, data: rows, total: countRows[0].total });
   } catch (err) {

@@ -32,9 +32,8 @@ const getAllPosts = async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' ORDER BY bp.published_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
-
-    const [rows] = await pool.execute(query, params);
+    query += ` LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+    const [rows] = await pool.query(query, params);
     const [countRows] = await pool.execute(
       "SELECT COUNT(*) as total FROM blog_posts WHERE status = 'published'"
     );
