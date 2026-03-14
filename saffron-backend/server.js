@@ -20,8 +20,7 @@ const blogRoutes     = require('./routes/blog');
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── HEALTH CHECK FIRST (before anything else) ────────────────────────────────
-// Must respond immediately so Railway healthcheck passes during startup
+// ─── HEALTH CHECK FIRST ───────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -32,16 +31,25 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'http://localhost:5173',
-].filter(Boolean);
-
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (Postman, mobile apps)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    const allowed = [
+      process.env.FRONTEND_URL,           // e.g. https://devcater.vercel.app
+      'http://localhost:3000',
+      'http://localhost:5173',
+    ].filter(Boolean);
+
+    // Allow any vercel.app preview URL for this project
+    const isVercelPreview = origin.includes('vercel.app');
+
+    if (allowed.includes(origin) || isVercelPreview) {
+      return callback(null, true);
+    }
+
+    console.error('CORS blocked:', origin);
     callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
@@ -81,7 +89,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err.stack);
+  console.error('Unhandled error:', err.message);
   res.status(500).json({
     success: false,
     message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
@@ -89,16 +97,11 @@ app.use((err, req, res, next) => {
 });
 
 // ─── START SERVER FIRST, THEN CONNECT DB ─────────────────────────────────────
-// Railway healthcheck hits /api/health during startup.
-// We must be listening BEFORE the DB connection attempt.
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🍊 Saffron API listening on port ${PORT}`);
-  console.log(`📋 Environment : ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS allowed: ${allowedOrigins.join(', ') || 'all'}\n`);
+  console.log(`📋 Environment : ${process.env.NODE_ENV || 'development'}\n`);
 
-  // Connect to DB after server is already up
   testConnection().catch((err) => {
     console.error('DB connection error:', err.message);
-    // Don't exit — let Railway see the app is running, DB may retry
   });
 });
