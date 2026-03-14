@@ -31,11 +31,11 @@ export const authAPI = {
 };
 
 export const menuAPI = {
-  getAll:  (p = {}) => request(`/menu?${new URLSearchParams(p)}`),
-  getOne:  (id)     => request(`/menu/${id}`),
-  create:  (fd)     => request('/menu',      { method: 'POST',   body: fd }),
-  update:  (id, fd) => request(`/menu/${id}`,{ method: 'PUT',    body: fd }),
-  delete:  (id)     => request(`/menu/${id}`,{ method: 'DELETE' }),
+  getAll:  (p = {})   => request(`/menu?${new URLSearchParams(p)}`),
+  getOne:  (id)       => request(`/menu/${id}`),
+  create:  (fd)       => request('/menu',       { method: 'POST',   body: fd }),
+  update:  (id, fd)   => request(`/menu/${id}`, { method: 'PUT',    body: fd }),
+  delete:  (id)       => request(`/menu/${id}`, { method: 'DELETE' }),
 };
 
 export const bookingAPI = {
@@ -73,8 +73,8 @@ export const customerAPI = {
 
 export const galleryAPI = {
   getAll: ()   => request('/gallery'),
-  upload: (fd) => request('/gallery',     { method: 'POST',   body: fd }),
-  delete: (id) => request(`/gallery/${id}`,{ method: 'DELETE' }),
+  upload: (fd) => request('/gallery', { method: 'POST', body: fd }),
+  delete: (id) => request(`/gallery/${id}`, { method: 'DELETE' }),
 };
 
 export const blogAPI = {

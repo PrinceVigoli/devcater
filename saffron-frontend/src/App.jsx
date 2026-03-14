@@ -399,16 +399,24 @@ function MenuSection({ cart, setCart, notify }) {
 
   useEffect(()=>{
     menuAPI.getAll({ status:'active' })
-      .then(({data})=>setItems(data))
+      .then(({data})=>{
+        if (data && data.length > 0) {
+          setItems(data);
+        } else {
+          // DB connected but no menu items yet - show empty with message
+          setItems([]);
+        }
+      })
       .catch(()=>{
-        // Fallback static data if backend not running
+        // Backend unreachable - show static preview items marked as demo
+        // These have _demo:true so cart blocks checkout with clear message
         setItems([
-          {id:1,category:'Appetizers',name:'Bruschetta Trio',description:'Tomato, pesto & mushroom on toasted ciabatta',price:12,image:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=400&q=80'},
-          {id:2,category:'Main Courses',name:'Beef Tenderloin',description:'Pan-seared with truffle butter & seasonal vegetables',price:45,image:'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&q=80'},
-          {id:3,category:'Desserts',name:'Chocolate Fondant',description:'Warm dark chocolate with vanilla bean ice cream',price:14,image:'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400&q=80'},
-          {id:4,category:'Beverages',name:'Sparkling Lemonade',description:'Fresh-squeezed with lavender syrup & mint',price:8,image:'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80'},
-          {id:5,category:'Main Courses',name:'Pan-Roasted Salmon',description:'Atlantic salmon with lemon caper beurre blanc',price:38,image:'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&q=80'},
-          {id:6,category:'Desserts',name:'Crème Brûlée',description:'Classic French custard with caramelized sugar',price:12,image:'https://images.unsplash.com/photo-1470124182917-cc6e71b22ecc?w=400&q=80'},
+          {id:'demo-1',category:'Appetizers',name:'Bruschetta Trio',description:'Tomato, pesto & mushroom on toasted ciabatta',price:12,image:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=400&q=80',_demo:true},
+          {id:'demo-2',category:'Main Courses',name:'Beef Tenderloin',description:'Pan-seared with truffle butter & seasonal vegetables',price:45,image:'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&q=80',_demo:true},
+          {id:'demo-3',category:'Desserts',name:'Chocolate Fondant',description:'Warm dark chocolate with vanilla bean ice cream',price:14,image:'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400&q=80',_demo:true},
+          {id:'demo-4',category:'Beverages',name:'Sparkling Lemonade',description:'Fresh-squeezed with lavender syrup & mint',price:8,image:'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80',_demo:true},
+          {id:'demo-5',category:'Main Courses',name:'Pan-Roasted Salmon',description:'Atlantic salmon with lemon caper beurre blanc',price:38,image:'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&q=80',_demo:true},
+          {id:'demo-6',category:'Desserts',name:'Crème Brûlée',description:'Classic French custard with caramelized sugar',price:12,image:'https://images.unsplash.com/photo-1470124182917-cc6e71b22ecc?w=400&q=80',_demo:true},
         ]);
       })
       .finally(()=>setLoading(false));
@@ -623,15 +631,30 @@ function CartModal({ cart, setCart, onClose, notify }) {
   const total = cart.reduce((s,i)=>s+i.price*i.qty,0);
   const [submitting, setSubmitting] = useState(false);
 
+  const hasDemoItems = cart.some(i => i._demo || String(i.id).startsWith('demo'));
+
   const checkout = async () => {
+    if (!user) {
+      onClose();
+      notify('Please sign in to place an order');
+      return;
+    }
+    if (hasDemoItems) {
+      notify('Menu items must be added by admin before ordering. Visit Admin Panel → Menu → Add Item.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const payload = { name: user?.name||'Guest', email: user?.email||'guest@guest.com', items: cart.map(i=>({ menu_item_id:i.id, quantity:i.qty })) };
+      const payload = {
+        name:  user.name,
+        email: user.email,
+        items: cart.map(i=>({ menu_item_id: i.id, quantity: i.qty })),
+      };
       const { order_ref } = await orderAPI.place(payload);
       setCart([]); onClose();
       notify(`Order placed! Ref: ${order_ref}`);
     } catch (err) {
-      notify(`Error: ${err.message}. Please sign in to place orders.`);
+      notify(`Failed to place order: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -643,6 +666,11 @@ function CartModal({ cart, setCart, onClose, notify }) {
         <button className="modal-close" onClick={onClose}>×</button>
         <h2>Your Order</h2>
         <p>{cart.length} item{cart.length!==1?'s':''} selected</p>
+        {hasDemoItems && (
+          <div style={{background:'#FEF9C3',border:'1px solid #F59E0B',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#92400E',marginBottom:12}}>
+            ⚠️ These are preview items. An admin needs to add real menu items before orders can be placed.
+          </div>
+        )}
         {cart.length===0
           ? <p style={{color:'var(--gray)',textAlign:'center',padding:'40px 0'}}>Your cart is empty</p>
           : <>
@@ -871,12 +899,12 @@ function UserDashboard({ onBack }) {
 
 // ─── GALLERY UPLOAD MODAL ─────────────────────────────────────────────────────
 function GalleryUploadModal({ onClose, onSuccess }) {
-  const [file, setFile]       = useState(null);
-  const [title, setTitle]     = useState('');
+  const [file, setFile]         = useState(null);
+  const [preview, setPreview]   = useState(null);
+  const [title, setTitle]       = useState('');
   const [category, setCategory] = useState('General');
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
 
   const onFile = e => {
     const f = e.target.files[0];
@@ -906,21 +934,21 @@ function GalleryUploadModal({ onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
         <button className="modal-close" onClick={onClose}>×</button>
-        <h2>Upload Image</h2>
-        <p>Add a photo to the gallery</p>
+        <h2>Upload Gallery Image</h2>
+        <p>Upload a photo to your gallery</p>
         {error && <div className="modal-error">{error}</div>}
-        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:24,textAlign:'center',marginBottom:16,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('gallery-file').click()}>
+        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:24,textAlign:'center',marginBottom:16,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('gallery-img-file').click()}>
           {preview
-            ? <img src={preview} alt="preview" style={{maxHeight:160,borderRadius:8,maxWidth:'100%'}}/>
-            : <div><div style={{fontSize:36,marginBottom:8}}>📷</div><div style={{color:'var(--gray)',fontSize:14}}>Click to select image</div></div>
+            ? <img src={preview} alt="preview" style={{maxHeight:180,borderRadius:8,maxWidth:'100%',objectFit:'cover'}}/>
+            : <div><div style={{fontSize:40,marginBottom:8}}>📷</div><div style={{color:'var(--gray)',fontSize:14}}>Click to select image</div><div style={{color:'var(--gray)',fontSize:12,marginTop:4}}>JPG, PNG, WEBP up to 5MB</div></div>
           }
         </div>
-        <input id="gallery-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
+        <input id="gallery-img-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
         <input className="modal-input" placeholder="Title (optional)" value={title} onChange={e=>setTitle(e.target.value)}/>
         <select className="modal-input" value={category} onChange={e=>setCategory(e.target.value)} style={{marginBottom:14}}>
           {['General','Wedding','Corporate','Birthday','Private Event','Buffet'].map(c=><option key={c}>{c}</option>)}
         </select>
-        <button className="modal-btn" onClick={submit} disabled={loading}>{loading?'Uploading...':'Upload Image'}</button>
+        <button className="modal-btn" onClick={submit} disabled={loading}>{loading?'Uploading to cloud...':'Upload Image'}</button>
       </div>
     </div>
   );
@@ -1024,13 +1052,13 @@ function MenuItemModal({ item, onClose, onSuccess }) {
         <h2>{item ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
         <p>{item ? 'Update this item' : 'Add a new item to the menu'}</p>
         {error && <div className="modal-error">{error}</div>}
-        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:16,textAlign:'center',marginBottom:14,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('menu-file').click()}>
+        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:16,textAlign:'center',marginBottom:14,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('menu-img-file').click()}>
           {preview
-            ? <img src={preview} alt="preview" style={{maxHeight:120,borderRadius:8,maxWidth:'100%'}}/>
-            : <div><div style={{fontSize:28,marginBottom:4}}>🍽️</div><div style={{color:'var(--gray)',fontSize:13}}>Click to upload image (optional)</div></div>
+            ? <img src={preview} alt="preview" style={{maxHeight:140,borderRadius:8,maxWidth:'100%',objectFit:'cover'}}/>
+            : <div><div style={{fontSize:32,marginBottom:6}}>🍽️</div><div style={{color:'var(--gray)',fontSize:13}}>Click to upload image (optional)</div></div>
           }
         </div>
-        <input id="menu-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
+        <input id="menu-img-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
         <input className="modal-input" placeholder="Item Name *" value={form.name} onChange={set('name')}/>
         <input className="modal-input" placeholder="Description" value={form.description} onChange={set('description')}/>
         <input className="modal-input" type="number" placeholder="Price (e.g. 12.99) *" value={form.price} onChange={set('price')}/>
@@ -1042,7 +1070,7 @@ function MenuItemModal({ item, onClose, onSuccess }) {
           <option value="inactive">Inactive</option>
         </select>
         <button className="modal-btn" onClick={submit} disabled={loading}>
-          {loading ? 'Saving...' : (item ? 'Update Item' : 'Add to Menu')}
+          {loading ? 'Uploading & Saving...' : (item ? 'Update Item' : 'Add to Menu')}
         </button>
       </div>
     </div>
