@@ -974,12 +974,13 @@ function AppInner() {
   if(authLoading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>⏳</div>;
 
   if(page==='admin') {
-    if(!user || user.role!=='admin') { setPage('home'); return null; }
+    if(!user) { setPage('home'); setShowLogin(true); return null; }
+    if(user.role!=='admin') { setPage('home'); notify('Admin access only. Please login with an admin account.'); return null; }
     return <><style>{css}</style><AdminPanel onExit={()=>setPage('home')}/></>;
   }
 
   if(page==='dashboard') {
-    if(!user) { setPage('home'); return null; }
+    if(!user) { setPage('home'); setShowLogin(true); return null; }
     return <><style>{css}</style><UserDashboard onBack={()=>setPage('home')}/></>;
   }
 
