@@ -252,7 +252,7 @@ const SERVICES = [
 ];
 const TESTIMONIALS = [
   { name:'Sarah Mitchell', role:'Bride',          rating:5, text:'Absolutely flawless service. Every guest complimented the food — our wedding was unforgettable.', avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80' },
-  { name:'James Chen',    role:'CEO, TechCorp',  rating:5, text:'We\'ve used Saffron for three corporate retreats. Consistently exceptional quality and professionalism.', avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80' },
+  { name:'James Chen',    role:'CEO, TechCorp',  rating:5, text:'We've used Saffron for three corporate retreats. Consistently exceptional quality and professionalism.', avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80' },
   { name:'Maria Rodriguez',role:'Event Planner', rating:5, text:'My go-to catering partner. The attention to detail and flavor profiles are simply world-class.', avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80' },
   { name:'David Park',    role:'Birthday Host',  rating:5, text:'They turned my 50th into a culinary journey. Simply magical.', avatar:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80' },
 ];
@@ -733,6 +733,187 @@ function UserDashboard({ onBack }) {
   );
 }
 
+
+// ─── GALLERY UPLOAD MODAL ─────────────────────────────────────────────────────
+function GalleryUploadModal({ onClose, onSuccess }) {
+  const [file, setFile]       = useState(null);
+  const [title, setTitle]     = useState('');
+  const [category, setCategory] = useState('General');
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+
+  const onFile = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const submit = async () => {
+    if (!file) return setError('Please select an image');
+    setLoading(true); setError('');
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      fd.append('title', title);
+      fd.append('category', category);
+      await galleryAPI.upload(fd);
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h2>Upload Image</h2>
+        <p>Add a photo to the gallery</p>
+        {error && <div className="modal-error">{error}</div>}
+        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:24,textAlign:'center',marginBottom:16,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('gallery-file').click()}>
+          {preview
+            ? <img src={preview} alt="preview" style={{maxHeight:160,borderRadius:8,maxWidth:'100%'}}/>
+            : <div><div style={{fontSize:36,marginBottom:8}}>📷</div><div style={{color:'var(--gray)',fontSize:14}}>Click to select image</div></div>
+          }
+        </div>
+        <input id="gallery-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
+        <input className="modal-input" placeholder="Title (optional)" value={title} onChange={e=>setTitle(e.target.value)}/>
+        <select className="modal-input" value={category} onChange={e=>setCategory(e.target.value)} style={{marginBottom:14}}>
+          {['General','Wedding','Corporate','Birthday','Private Event','Buffet'].map(c=><option key={c}>{c}</option>)}
+        </select>
+        <button className="modal-btn" onClick={submit} disabled={loading}>{loading?'Uploading...':'Upload Image'}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── BLOG POST MODAL ──────────────────────────────────────────────────────────
+function BlogPostModal({ post, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    title:    post?.title    || '',
+    content:  post?.content  || '',
+    excerpt:  post?.excerpt  || '',
+    category: post?.category || '',
+    image:    post?.image    || '',
+    status:   post?.status   || 'draft',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+
+  const submit = async () => {
+    if (!form.title || !form.content) return setError('Title and content are required');
+    setLoading(true); setError('');
+    try {
+      if (post) await blogAPI.update(post.id, form);
+      else      await blogAPI.create(form);
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:600,maxHeight:'90vh',overflowY:'auto'}}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h2>{post ? 'Edit Post' : 'New Blog Post'}</h2>
+        <p>{post ? 'Update this post' : 'Create a new blog post'}</p>
+        {error && <div className="modal-error">{error}</div>}
+        <input className="modal-input" placeholder="Post Title *" value={form.title} onChange={set('title')}/>
+        <input className="modal-input" placeholder="Category (e.g. Tips, Events, Recipes)" value={form.category} onChange={set('category')}/>
+        <input className="modal-input" placeholder="Featured Image URL (optional)" value={form.image} onChange={set('image')}/>
+        <input className="modal-input" placeholder="Short excerpt / summary" value={form.excerpt} onChange={set('excerpt')}/>
+        <textarea className="modal-input" placeholder="Post content *" value={form.content} onChange={set('content')} style={{minHeight:180,resize:'vertical'}}/>
+        <select className="modal-input" value={form.status} onChange={set('status')} style={{marginBottom:14}}>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+        </select>
+        <button className="modal-btn" onClick={submit} disabled={loading}>
+          {loading ? 'Saving...' : (post ? 'Update Post' : 'Create Post')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MENU ITEM MODAL ──────────────────────────────────────────────────────────
+function MenuItemModal({ item, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    name:        item?.name        || '',
+    description: item?.description || '',
+    price:       item?.price       || '',
+    category:    item?.category    || 'Appetizers',
+    status:      item?.status      || 'active',
+  });
+  const [file, setFile]       = useState(null);
+  const [preview, setPreview] = useState(item?.image || null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+
+  const onFile = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const submit = async () => {
+    if (!form.name || !form.price || !form.category) return setError('Name, price, and category are required');
+    setLoading(true); setError('');
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k,v]) => fd.append(k, v));
+      if (file) fd.append('image', file);
+      if (item) await menuAPI.update(item.id, fd);
+      else      await menuAPI.create(fd);
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h2>{item ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
+        <p>{item ? 'Update this item' : 'Add a new item to the menu'}</p>
+        {error && <div className="modal-error">{error}</div>}
+        <div style={{border:'2px dashed var(--gray-light)',borderRadius:12,padding:16,textAlign:'center',marginBottom:14,cursor:'pointer',background:'var(--cream)'}} onClick={()=>document.getElementById('menu-file').click()}>
+          {preview
+            ? <img src={preview} alt="preview" style={{maxHeight:120,borderRadius:8,maxWidth:'100%'}}/>
+            : <div><div style={{fontSize:28,marginBottom:4}}>🍽️</div><div style={{color:'var(--gray)',fontSize:13}}>Click to upload image (optional)</div></div>
+          }
+        </div>
+        <input id="menu-file" type="file" accept="image/*" style={{display:'none'}} onChange={onFile}/>
+        <input className="modal-input" placeholder="Item Name *" value={form.name} onChange={set('name')}/>
+        <input className="modal-input" placeholder="Description" value={form.description} onChange={set('description')}/>
+        <input className="modal-input" type="number" placeholder="Price (e.g. 12.99) *" value={form.price} onChange={set('price')}/>
+        <select className="modal-input" value={form.category} onChange={set('category')} style={{marginBottom:14}}>
+          {['Appetizers','Main Courses','Desserts','Beverages','Catering Packages'].map(c=><option key={c}>{c}</option>)}
+        </select>
+        <select className="modal-input" value={form.status} onChange={set('status')} style={{marginBottom:14}}>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <button className="modal-btn" onClick={submit} disabled={loading}>
+          {loading ? 'Saving...' : (item ? 'Update Item' : 'Add to Menu')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
 function AdminPanel({ onExit }) {
   const { user } = useAuth();
@@ -746,6 +927,16 @@ function AdminPanel({ onExit }) {
   const [blogPosts, setBlogPosts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Modal states
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [showBlogModal, setShowBlogModal]       = useState(false);
+  const [showMenuModal, setShowMenuModal]       = useState(false);
+  const [editingBlog, setEditingBlog]           = useState(null);
+  const [editingMenu, setEditingMenu]           = useState(null);
+  const [modalMsg, setModalMsg]                 = useState('');
+
+  const notify = msg => { setModalMsg(msg); setTimeout(()=>setModalMsg(''), 4000); };
 
   useEffect(()=>{ loadSection(section); },[section]);
 
@@ -815,8 +1006,12 @@ function AdminPanel({ onExit }) {
 
     if(section==='menu') return (
       <div className="admin-content">
+        {showMenuModal && <MenuItemModal item={editingMenu} onClose={()=>{ setShowMenuModal(false); setEditingMenu(null); }} onSuccess={()=>{ setShowMenuModal(false); setEditingMenu(null); loadSection('menu'); notify(editingMenu?'Item updated!':'Item created!'); }}/>}
         <div className="admin-table-wrap">
-          <div className="admin-table-header"><span className="admin-table-title">Menu Items</span><button className="admin-add-btn">+ Add Item</button></div>
+          <div className="admin-table-header">
+            <span className="admin-table-title">Menu Items</span>
+            <button className="admin-add-btn" onClick={()=>{ setEditingMenu(null); setShowMenuModal(true); }}>+ Add Item</button>
+          </div>
           <table><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>{menuItems.map(m=>(
               <tr key={m.id}>
@@ -824,7 +1019,7 @@ function AdminPanel({ onExit }) {
                 <td style={{fontWeight:600}}>${m.price}</td>
                 <td><span className={`status-badge status-${m.status}`}>{m.status}</span></td>
                 <td>
-                  <button className="action-btn action-edit">Edit</button>
+                  <button className="action-btn action-edit" onClick={()=>{ setEditingMenu(m); setShowMenuModal(true); }}>Edit</button>
                   <button className="action-btn action-delete" onClick={async()=>{ await menuAPI.delete(m.id); loadSection('menu'); }}>Delete</button>
                 </td>
               </tr>
@@ -883,18 +1078,25 @@ function AdminPanel({ onExit }) {
 
     if(section==='gallery') return (
       <div className="admin-content">
+        {showGalleryModal && <GalleryUploadModal onClose={()=>setShowGalleryModal(false)} onSuccess={()=>{ setShowGalleryModal(false); loadSection('gallery'); notify('Image uploaded!'); }}/>}
         <div className="admin-table-wrap">
-          <div className="admin-table-header"><span className="admin-table-title">Gallery</span><button className="admin-add-btn">+ Upload Image</button></div>
+          <div className="admin-table-header">
+            <span className="admin-table-title">Gallery</span>
+            <button className="admin-add-btn" onClick={()=>setShowGalleryModal(true)}>+ Upload Image</button>
+          </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:16,marginTop:16}}>
-            {gallery.map((img,i)=>(
-              <div key={i} style={{borderRadius:12,overflow:'hidden',position:'relative',aspectRatio:'4/3',boxShadow:'var(--shadow)'}}>
-                <img src={`http://localhost:5000${img.filename}`} alt={img.title} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.src=STATIC_GALLERY[i%6]}/>
-                <div style={{position:'absolute',bottom:8,right:8}}>
-                  <button className="action-btn action-delete" onClick={async()=>{ await galleryAPI.delete(img.id); loadSection('gallery'); }}>Delete</button>
+            {gallery.map((img,i)=>{
+              const API = process.env.REACT_APP_API_URL?.replace('/api','') || 'http://localhost:5000';
+              return (
+                <div key={i} style={{borderRadius:12,overflow:'hidden',position:'relative',aspectRatio:'4/3',boxShadow:'var(--shadow)'}}>
+                  <img src={`${API}${img.filename}`} alt={img.title} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.src=STATIC_GALLERY[i%6]}/>
+                  <div style={{position:'absolute',bottom:8,right:8}}>
+                    <button className="action-btn action-delete" onClick={async()=>{ await galleryAPI.delete(img.id); loadSection('gallery'); }}>Delete</button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {gallery.length===0 && <p style={{color:'var(--gray)',padding:'20px 0'}}>No images uploaded yet.</p>}
+              );
+            })}
+            {gallery.length===0 && <p style={{color:'var(--gray)',padding:'20px 0'}}>No images uploaded yet. Click Upload Image to add photos.</p>}
           </div>
         </div>
       </div>
@@ -902,16 +1104,20 @@ function AdminPanel({ onExit }) {
 
     if(section==='blog') return (
       <div className="admin-content">
+        {showBlogModal && <BlogPostModal post={editingBlog} onClose={()=>{ setShowBlogModal(false); setEditingBlog(null); }} onSuccess={()=>{ setShowBlogModal(false); setEditingBlog(null); loadSection('blog'); notify(editingBlog?'Post updated!':'Post created!'); }}/>}
         <div className="admin-table-wrap">
-          <div className="admin-table-header"><span className="admin-table-title">Blog Posts</span><button className="admin-add-btn">+ New Post</button></div>
+          <div className="admin-table-header">
+            <span className="admin-table-title">Blog Posts</span>
+            <button className="admin-add-btn" onClick={()=>{ setEditingBlog(null); setShowBlogModal(true); }}>+ New Post</button>
+          </div>
           <table><thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
             <tbody>{blogPosts.map(p=>(
               <tr key={p.id}>
-                <td style={{fontWeight:600}}>{p.title}</td><td>{p.category}</td>
+                <td style={{fontWeight:600}}>{p.title}</td><td>{p.category||'—'}</td>
                 <td><span className={`status-badge status-${p.status==='published'?'active':'inactive'}`}>{p.status}</span></td>
                 <td>{p.created_at?.slice(0,10)}</td>
                 <td>
-                  <button className="action-btn action-edit">Edit</button>
+                  <button className="action-btn action-edit" onClick={()=>{ setEditingBlog(p); setShowBlogModal(true); }}>Edit</button>
                   <button className="action-btn action-delete" onClick={async()=>{ await blogAPI.delete(p.id); loadSection('blog'); }}>Delete</button>
                 </td>
               </tr>
