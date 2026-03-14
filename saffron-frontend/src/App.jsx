@@ -229,6 +229,45 @@ const css = `
   .chart-labels{display:flex;gap:8px;padding:8px 8px 0}
   .chart-label{flex:1;text-align:center;font-size:11px;color:var(--gray)}
 
+  /* ADMIN TOAST */
+  .admin-toast{position:fixed;bottom:30px;right:30px;z-index:9999;background:var(--brown);color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:var(--shadow-lg);animation:slideup .3s ease;display:flex;align-items:center;gap:10px}
+  .admin-toast.success{background:#15803D} .admin-toast.error{background:#B91C1C}
+
+  /* BOOKING DETAIL EXPAND */
+  .booking-expand{background:var(--cream);border-radius:12px;padding:16px 20px;margin-top:8px;font-size:13px;color:var(--brown)}
+  .booking-expand-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .booking-expand-field label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px}
+  .booking-expand-field input,.booking-expand-field select{width:100%;padding:8px 12px;border:1px solid var(--gray-light);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;color:var(--brown)}
+  .booking-expand-field input:focus,.booking-expand-field select:focus{border-color:var(--orange)}
+
+  /* PROFILE EDIT */
+  .profile-card{background:#fff;border-radius:20px;padding:32px;box-shadow:var(--shadow);margin-bottom:24px}
+  .profile-card h3{font-size:20px;font-weight:700;color:var(--brown);margin-bottom:20px;font-family:'Playfair Display',serif}
+  .profile-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .profile-field label{font-size:13px;font-weight:600;color:var(--gray);display:block;margin-bottom:6px}
+  .profile-field input{width:100%;padding:12px 16px;border:2px solid var(--gray-light);border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;color:var(--brown);transition:border .2s}
+  .profile-field input:focus{border-color:var(--orange)}
+  .profile-save{background:var(--orange);color:#fff;border:none;padding:12px 28px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s}
+  .profile-save:hover{background:var(--orange-light)} .profile-save:disabled{opacity:.6;cursor:not-allowed}
+
+  /* ORDER ITEMS EXPAND */
+  .order-items-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .order-item-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--gray-light)}
+  .order-item-row:last-child{border-bottom:none;font-weight:700;color:var(--brown)}
+
+  /* CONFIRM DIALOG */
+  .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px}
+  .confirm-box{background:#fff;border-radius:20px;padding:32px;max-width:400px;width:100%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+  .confirm-box h3{font-size:22px;color:var(--brown);margin-bottom:8px}
+  .confirm-box p{color:var(--gray);font-size:15px;margin-bottom:24px}
+  .confirm-btns{display:flex;gap:12px;justify-content:center}
+  .confirm-yes{background:#B91C1C;color:#fff;border:none;padding:12px 28px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+  .confirm-no{background:var(--gray-light);color:var(--brown);border:none;padding:12px 28px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+  /* STATUS CANCELLED */
+  .status-cancelled{background:#F3F4F6;color:#6B7280}
+  .status-delivering{background:#EDE9FE;color:#7C3AED}
+
   @media(max-width:768px){
     .nav{padding:16px 20px} .nav.scrolled{padding:12px 20px} .nav-links{display:none}
     .section,.section-sm{padding:70px 20px}
@@ -269,6 +308,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const ADMIN_SECTIONS = [
   { id:'dashboard', label:'Dashboard',  icon:'📊' },
   { id:'bookings',  label:'Bookings',   icon:'📅' },
+  { id:'orders',    label:'Orders',     icon:'🛒' },
   { id:'menu',      label:'Menu',       icon:'🍽️' },
   { id:'customers', label:'Customers',  icon:'👥' },
   { id:'payments',  label:'Payments',   icon:'💳' },
@@ -680,53 +720,148 @@ function LoginModal({ onClose, notify }) {
 // ─── USER DASHBOARD ───────────────────────────────────────────────────────────
 function UserDashboard({ onBack }) {
   const { user, logout } = useAuth();
-  const [tab, setTab] = useState('bookings');
+  const [tab, setTab]       = useState('bookings');
   const [bookings, setBookings] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [notif, setNotif]     = useState('');
+  const [editProfile, setEditProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: user?.name||'', phone: user?.phone||'' });
+  const [pwForm, setPwForm]   = useState({ currentPassword:'', newPassword:'' });
+  const [saving, setSaving]   = useState(false);
 
-  useEffect(()=>{
+  const notify = (msg, type='success') => { setNotif({msg,type}); setTimeout(()=>setNotif(''),4000); };
+
+  const load = () => {
+    setLoading(true);
     Promise.all([bookingAPI.myBookings(), orderAPI.myOrders()])
       .then(([b,o])=>{ setBookings(b.data||[]); setOrders(o.data||[]); })
       .catch(console.error)
       .finally(()=>setLoading(false));
-  },[]);
+  };
+
+  useEffect(()=>{ load(); },[]);
+
+  const cancelOrder = async (id) => {
+    if (!window.confirm('Cancel this order?')) return;
+    try {
+      await orderAPI.cancelOrder(id);
+      notify('Order cancelled');
+      load();
+    } catch(e) { notify(e.message,'error'); }
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      await authAPI.updateProfile(profileForm);
+      notify('Profile updated!');
+      setEditProfile(false);
+    } catch(e) { notify(e.message,'error'); }
+    finally { setSaving(false); }
+  };
+
+  const changePassword = async () => {
+    if (!pwForm.currentPassword || !pwForm.newPassword) return notify('Fill in both fields','error');
+    setSaving(true);
+    try {
+      await authAPI.changePassword(pwForm);
+      notify('Password changed!');
+      setPwForm({ currentPassword:'', newPassword:'' });
+    } catch(e) { notify(e.message,'error'); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div style={{minHeight:'100vh',background:'var(--cream)'}}>
       <style>{css}</style>
+      {notif && <div className={`admin-toast ${notif.type}`}>{ notif.type==='success'?'✓':'✕' } {notif.msg}</div>}
       <div className="dashboard-wrap">
         <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'var(--orange)',fontWeight:600,fontSize:14,marginBottom:20,fontFamily:'DM Sans,sans-serif'}}>← Back to Home</button>
         <h1 className="dashboard-title">My Dashboard</h1>
         <p className="dashboard-sub">Welcome back, {user?.name} · {user?.email}</p>
+
         <div className="dashboard-tabs">
           <button className={`dashboard-tab${tab==='bookings'?' active':''}`} onClick={()=>setTab('bookings')}>📅 My Bookings</button>
           <button className={`dashboard-tab${tab==='orders'?' active':''}`} onClick={()=>setTab('orders')}>🛒 My Orders</button>
+          <button className={`dashboard-tab${tab==='profile'?' active':''}`} onClick={()=>setTab('profile')}>👤 My Profile</button>
         </div>
-        {loading ? <Spinner/> : tab==='bookings' ? (
+
+        {loading && tab!=='profile' ? <Spinner/> : tab==='bookings' ? (
           bookings.length===0
             ? <div className="empty-state"><h3>No bookings yet</h3><p>Submit a booking request from the main page</p></div>
             : <div className="booking-list">{bookings.map(b=>(
                 <div className="booking-item" key={b.id}>
                   <div className="booking-item-info">
-                    <h4>{b.event_type} · {b.booking_ref}</h4>
-                    <p>{b.event_date} · {b.guest_count} guests</p>
+                    <h4>{b.event_type} · <span style={{color:'var(--orange)'}}>{b.booking_ref}</span></h4>
+                    <p>{new Date(b.event_date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · {b.guest_count} guests</p>
+                    {b.assigned_team && <p style={{color:'var(--orange)',fontSize:12,marginTop:4}}>Team: {b.assigned_team}</p>}
+                    {b.total_amount>0 && <p style={{fontWeight:600,fontSize:13,marginTop:4}}>Quote: ${Number(b.total_amount).toLocaleString()}</p>}
+                    {b.message && <p style={{fontSize:12,color:'var(--gray)',marginTop:4,fontStyle:'italic'}}>"{b.message}"</p>}
                   </div>
                   <span className={`status-badge status-${b.status}`}>{b.status}</span>
                 </div>
               ))}</div>
-        ) : (
+        ) : tab==='orders' ? (
           orders.length===0
             ? <div className="empty-state"><h3>No orders yet</h3><p>Add items from the menu to place an order</p></div>
             : <div className="booking-list">{orders.map(o=>(
-                <div className="booking-item" key={o.id}>
-                  <div className="booking-item-info">
-                    <h4>Order {o.order_ref}</h4>
-                    <p>Total: ${o.total} · {o.event_date||'No date set'}</p>
+                <div key={o.id}>
+                  <div className="booking-item" style={{cursor:'pointer'}} onClick={()=>setExpandedOrder(expandedOrder===o.id?null:o.id)}>
+                    <div className="booking-item-info">
+                      <h4>Order <span style={{color:'var(--orange)'}}>{o.order_ref}</span></h4>
+                      <p>Total: <strong>${Number(o.total).toFixed(2)}</strong> · {o.event_date ? new Date(o.event_date).toLocaleDateString() : 'No date'} · {o.items?.length||0} item(s)</p>
+                      <p style={{fontSize:12,color:'var(--gray)',marginTop:2}}>Click to {expandedOrder===o.id?'collapse':'expand'}</p>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+                      <span className={`status-badge status-${o.status}`}>{o.status}</span>
+                      {['pending','confirmed'].includes(o.status) && (
+                        <button className="action-btn action-delete" style={{fontSize:11}} onClick={e=>{e.stopPropagation();cancelOrder(o.id);}}>Cancel</button>
+                      )}
+                    </div>
                   </div>
-                  <span className={`status-badge status-${o.status}`}>{o.status}</span>
+                  {expandedOrder===o.id && o.items?.length>0 && (
+                    <div className="order-items-list" style={{background:'#fff',borderRadius:12,padding:'12px 20px',marginTop:-8,marginBottom:8,boxShadow:'var(--shadow)'}}>
+                      {o.items.map((item,i)=>(
+                        <div className="order-item-row" key={i}>
+                          <span>{item.name} × {item.quantity}</span>
+                          <span>${Number(item.subtotal).toFixed(2)}</span>
+                        </div>
+                      ))}
+                      <div className="order-item-row"><span>Subtotal</span><span>${Number(o.subtotal).toFixed(2)}</span></div>
+                      <div className="order-item-row"><span>Tax (10%)</span><span>${Number(o.tax).toFixed(2)}</span></div>
+                      <div className="order-item-row"><span>Total</span><span>${Number(o.total).toFixed(2)}</span></div>
+                    </div>
+                  )}
                 </div>
               ))}</div>
+        ) : (
+          // Profile Tab
+          <div>
+            <div className="profile-card">
+              <h3>Personal Information</h3>
+              <div className="profile-row">
+                <div className="profile-field"><label>Full Name</label><input value={profileForm.name} onChange={e=>setProfileForm(f=>({...f,name:e.target.value}))}/></div>
+                <div className="profile-field"><label>Phone</label><input value={profileForm.phone} onChange={e=>setProfileForm(f=>({...f,phone:e.target.value}))}/></div>
+              </div>
+              <div className="profile-field" style={{marginBottom:20}}><label>Email (cannot change)</label><input value={user?.email} disabled style={{opacity:.6}}/></div>
+              <button className="profile-save" onClick={saveProfile} disabled={saving}>{saving?'Saving...':'Save Changes'}</button>
+            </div>
+            <div className="profile-card">
+              <h3>Change Password</h3>
+              <div className="profile-row">
+                <div className="profile-field"><label>Current Password</label><input type="password" value={pwForm.currentPassword} onChange={e=>setPwForm(f=>({...f,currentPassword:e.target.value}))}/></div>
+                <div className="profile-field"><label>New Password</label><input type="password" value={pwForm.newPassword} onChange={e=>setPwForm(f=>({...f,newPassword:e.target.value}))}/></div>
+              </div>
+              <button className="profile-save" onClick={changePassword} disabled={saving}>{saving?'Updating...':'Update Password'}</button>
+            </div>
+            <div className="profile-card" style={{textAlign:'center'}}>
+              <h3>Account Actions</h3>
+              <p style={{color:'var(--gray)',marginBottom:20,fontSize:14}}>Member since {new Date(user?.created_at||Date.now()).toLocaleDateString('en-US',{year:'numeric',month:'long'})}</p>
+              <button onClick={()=>{ logout(); onBack(); }} style={{background:'#FEE2E2',color:'#B91C1C',border:'none',padding:'12px 28px',borderRadius:50,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'DM Sans,sans-serif'}}>Sign Out</button>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -923,10 +1058,14 @@ function AdminPanel({ onExit }) {
   const [menuItems, setMenuItems] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [payments, setPayments] = useState(null);
+  const [orders, setOrders]   = useState([]);
   const [gallery, setGallery] = useState([]);
   const [blogPosts, setBlogPosts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Expand states
+  const [expandedBooking, setExpandedBooking] = useState(null);
 
   // Modal states
   const [showGalleryModal, setShowGalleryModal] = useState(false);
@@ -949,6 +1088,7 @@ function AdminPanel({ onExit }) {
       else if(s==='customers') { const r=await customerAPI.getAll(); setCustomers(r.data||[]); }
       else if(s==='payments') { const r=await paymentAPI.getAll(); setPayments(r); }
       else if(s==='gallery') { const r=await galleryAPI.getAll(); setGallery(r.data||[]); }
+      else if(s==='orders') { const r=await orderAPI.getAll(); setOrders(r.data||[]); }
       else if(s==='blog') { const r=await blogAPI.adminAll(); setBlogPosts(r.data||[]); }
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
@@ -981,22 +1121,51 @@ function AdminPanel({ onExit }) {
     );
 
     if(section==='bookings') {
-      const filtered = bookings.filter(b=>!search||b.name?.toLowerCase().includes(search.toLowerCase())||b.booking_ref?.includes(search));
+      const filtered = bookings.filter(b=>!search||b.name?.toLowerCase().includes(search.toLowerCase())||b.booking_ref?.includes(search.toUpperCase()));
       return (
         <div className="admin-content">
           <div className="admin-table-wrap">
-            <div className="admin-table-header"><span className="admin-table-title">Event Bookings</span><input className="admin-search" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+            <div className="admin-table-header"><span className="admin-table-title">Event Bookings ({filtered.length})</span><input className="admin-search" placeholder="Search name or ref..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
             <table><thead><tr><th>Ref</th><th>Customer</th><th>Event</th><th>Date</th><th>Guests</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>{filtered.map(b=>(
-                <tr key={b.id}>
-                  <td style={{fontWeight:600,color:'var(--orange)'}}>{b.booking_ref}</td>
-                  <td>{b.name}</td><td>{b.event_type}</td><td>{b.event_date}</td><td>{b.guest_count}</td>
-                  <td><span className={`status-badge status-${b.status}`}>{b.status}</span></td>
-                  <td>
-                    <button className="action-btn action-edit" onClick={async()=>{ await bookingAPI.updateStatus(b.id,{status:b.status==='pending'?'confirmed':'pending'}); loadSection('bookings'); }}>Toggle</button>
-                    <button className="action-btn action-delete" onClick={async()=>{ await bookingAPI.delete(b.id); loadSection('bookings'); }}>Delete</button>
-                  </td>
-                </tr>
+                <>
+                  <tr key={b.id} style={{cursor:'pointer'}} onClick={()=>setExpandedBooking(expandedBooking===b.id?null:b.id)}>
+                    <td style={{fontWeight:600,color:'var(--orange)'}}>{b.booking_ref}</td>
+                    <td><div style={{fontWeight:600}}>{b.name}</div><div style={{fontSize:12,color:'var(--gray)'}}>{b.email}</div></td>
+                    <td>{b.event_type}</td>
+                    <td>{b.event_date?.slice(0,10)}</td>
+                    <td>{b.guest_count}</td>
+                    <td>
+                      <select value={b.status} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--gray-light)',fontSize:12,fontFamily:'DM Sans,sans-serif',background:'#fff'}}
+                        onClick={e=>e.stopPropagation()}
+                        onChange={async e=>{ await bookingAPI.updateStatus(b.id,{status:e.target.value}); notify(`Booking ${e.target.value}`); loadSection('bookings'); }}>
+                        {['pending','confirmed','rejected','cancelled'].map(s=><option key={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td onClick={e=>e.stopPropagation()}>
+                      <button className="action-btn action-delete" onClick={async()=>{ if(window.confirm('Delete booking?')){ await bookingAPI.delete(b.id); loadSection('bookings'); } }}>Delete</button>
+                    </td>
+                  </tr>
+                  {expandedBooking===b.id && (
+                    <tr key={`${b.id}-expand`}><td colSpan={7} style={{padding:0}}>
+                      <div className="booking-expand">
+                        <div style={{fontWeight:600,marginBottom:8,color:'var(--brown)'}}>📋 Booking Details — {b.booking_ref}</div>
+                        {b.message && <div style={{marginBottom:12,fontStyle:'italic',color:'var(--gray)'}}>"{b.message}"</div>}
+                        <div className="booking-expand-grid">
+                          <div className="booking-expand-field"><label>Assign Team</label>
+                            <input defaultValue={b.assigned_team||''} placeholder="e.g. Team Alpha"
+                              onBlur={async e=>{ if(e.target.value!==b.assigned_team){ await bookingAPI.updateStatus(b.id,{status:b.status,assigned_team:e.target.value}); notify('Team assigned'); loadSection('bookings'); }}}/>
+                          </div>
+                          <div className="booking-expand-field"><label>Quote Amount ($)</label>
+                            <input type="number" defaultValue={b.total_amount||0} placeholder="0.00"
+                              onBlur={async e=>{ if(parseFloat(e.target.value)!==parseFloat(b.total_amount)){ await bookingAPI.updateStatus(b.id,{status:b.status,total_amount:e.target.value}); notify('Amount updated'); loadSection('bookings'); }}}/>
+                          </div>
+                        </div>
+                        <div style={{marginTop:8,fontSize:12,color:'var(--gray)'}}>Phone: {b.phone||'—'} · Submitted: {b.created_at?.slice(0,10)}</div>
+                      </div>
+                    </td></tr>
+                  )}
+                </>
               ))}</tbody>
             </table>
           </div>
@@ -1050,6 +1219,33 @@ function AdminPanel({ onExit }) {
       );
     }
 
+    if(section==='orders') {
+      return (
+        <div className="admin-content">
+          <div className="admin-table-wrap">
+            <div className="admin-table-header"><span className="admin-table-title">Catering Orders</span></div>
+            <table><thead><tr><th>Ref</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>{(orders||[]).map(o=>(
+                <tr key={o.id}>
+                  <td style={{fontWeight:600,color:'var(--orange)'}}>{o.order_ref}</td>
+                  <td><div style={{fontWeight:600}}>{o.name}</div><div style={{fontSize:12,color:'var(--gray)'}}>{o.email}</div></td>
+                  <td>{o.event_date?.slice(0,10)||'—'}</td>
+                  <td style={{fontWeight:600}}>${Number(o.total).toFixed(2)}</td>
+                  <td>
+                    <select value={o.status} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--gray-light)',fontSize:12,fontFamily:'DM Sans,sans-serif',background:'#fff'}}
+                      onChange={async e=>{ await orderAPI.updateStatus(o.id,{status:e.target.value}); notify(`Order ${e.target.value}`); loadSection('orders'); }}>
+                      {['pending','confirmed','preparing','delivered','cancelled'].map(s=><option key={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td><button className="action-btn action-delete" onClick={async()=>{ if(window.confirm('Delete order?')){ await orderAPI.delete(o.id); loadSection('orders'); } }}>Delete</button></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
     if(section==='payments') return (
       <div className="admin-content">
         {payments?.stats && (
@@ -1068,7 +1264,10 @@ function AdminPanel({ onExit }) {
                 <td>{p.customer_name}</td><td>{p.method}</td>
                 <td style={{fontWeight:600}}>${Number(p.amount).toLocaleString()}</td>
                 <td><span className={`status-badge status-${p.status==='completed'?'confirmed':p.status==='pending'?'pending':'rejected'}`}>{p.status}</span></td>
-                <td><button className="action-btn action-edit" onClick={async()=>{ await paymentAPI.updateStatus(p.id,{status:'completed'}); loadSection('payments'); }}>Verify</button></td>
+                <td>
+                    {p.status==='pending' && <button className="action-btn action-edit" onClick={async()=>{ await paymentAPI.updateStatus(p.id,{status:'completed'}); notify('Payment verified ✓'); loadSection('payments'); }}>Verify</button>}
+                    {p.status==='completed' && <button className="action-btn action-delete" style={{background:'#FEF9C3',color:'#854D0E'}} onClick={async()=>{ if(window.confirm('Refund this payment?')){ await paymentAPI.updateStatus(p.id,{status:'refunded'}); notify('Payment refunded'); loadSection('payments'); } }}>Refund</button>}
+                  </td>
               </tr>
             ))}</tbody>
           </table>
@@ -1132,6 +1331,7 @@ function AdminPanel({ onExit }) {
 
   return (
     <div className="admin-wrap">
+      {modalMsg && <div className="admin-toast success">✓ {modalMsg}</div>}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-header"><div className="admin-logo">✦ Saffron</div><div className="admin-badge-pill">Admin Panel</div></div>
         <nav className="admin-nav">

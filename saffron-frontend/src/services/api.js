@@ -53,6 +53,8 @@ export const orderAPI = {
   getAll:       (p = {})=> request(`/orders?${new URLSearchParams(p)}`),
   getOne:       (id)    => request(`/orders/${id}`),
   updateStatus: (id, b) => request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify(b) }),
+  cancelOrder:  (id)    => request(`/orders/${id}/cancel`,  { method: 'PUT', body: JSON.stringify({}) }),
+  delete:       (id)    => request(`/orders/${id}`,          { method: 'DELETE' }),
 };
 
 export const paymentAPI = {
