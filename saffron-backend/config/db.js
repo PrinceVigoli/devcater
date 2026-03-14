@@ -63,7 +63,8 @@ const testConnection = async () => {
       MYSQLPORT:      process.env.MYSQLPORT,
       DB_HOST:        process.env.DB_HOST,
     });
-    process.exit(1);
+    // Do not exit on Railway — server stays up for healthcheck
+    // process.exit(1);
   }
 };
 
