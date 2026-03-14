@@ -1,3 +1,6 @@
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
 const pool = mysql.createPool({
   host: process.env.MYSQLHOST || process.env.DB_HOST || 'localhost',
   port: process.env.MYSQLPORT || process.env.DB_PORT || 3306,
