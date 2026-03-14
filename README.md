@@ -1,150 +1,107 @@
 # 🍊 Saffron Catering
 
-A full-stack premium catering website with customer-facing landing page, real-time menu, event booking system, cart + ordering, and a full admin dashboard.
-
-**Stack:** React · Node.js · Express · MySQL
+Full-stack premium catering website — React + Node.js + Express + MySQL
 
 ---
 
-## 📁 Project Structure
+## 📁 Structure
 
 ```
 saffron-catering/
-├── saffron-backend/      → Node.js + Express REST API
-└── saffron-frontend/     → React single-page application
+├── saffron-backend/    → Node.js + Express REST API
+└── saffron-frontend/   → React single-page app
 ```
 
 ---
 
-## ✨ Features
+## 🚀 Deploy to Railway (Backend + MySQL)
 
-### Customer Side
-- 🏠 Landing page — hero, services, about, gallery, testimonials
-- 🍽️ Live menu — loaded from database, filterable by category
-- 🛒 Cart + checkout — places real orders saved to MySQL
-- 📅 Event booking form — saves to DB, sends confirmation email
-- 👤 User accounts — register, login, JWT auth
-- 📋 User dashboard — view own bookings & orders
-
-### Admin Panel
-- 📊 Dashboard — live stats, monthly booking chart
-- 📅 Bookings — confirm/reject, assign team, email notifications
-- 🍽️ Menu — add/edit/delete items with image upload
-- 👥 Customers — view, suspend/activate accounts
-- 💳 Payments — track and verify transactions
-- 🖼️ Gallery — upload/delete images
-- 📝 Blog — create/publish/draft posts
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone the repo
+### Step 1 — Push to GitHub first
 ```bash
-git clone https://github.com/YOUR_USERNAME/saffron-catering.git
-cd saffron-catering
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/saffron-catering.git
+git push -u origin main
 ```
 
-### 2. Set up the backend
+### Step 2 — Deploy backend on Railway
+1. Go to https://railway.app → **New Project**
+2. Click **Deploy from GitHub repo** → select your repo
+3. Railway asks which folder → select **saffron-backend**
+4. Click **Add Plugin** → **MySQL** — Railway creates a database and injects `MYSQL_URL` automatically
+5. Go to **Variables** tab and add:
+
+| Variable | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `JWT_SECRET` | any long random string |
+| `FRONTEND_URL` | your Vercel URL (add after Step 3) |
+| `EMAIL_USER` | your Gmail |
+| `EMAIL_PASS` | your Gmail App Password |
+
+6. Railway auto-deploys. Copy your backend URL: `https://xxxx.up.railway.app`
+
+### Step 3 — Deploy frontend on Vercel
+1. Go to https://vercel.com → **New Project** → import your GitHub repo
+2. Set **Root Directory** to `saffron-frontend`
+3. Add Environment Variable:
+
+| Variable | Value |
+|---|---|
+| `REACT_APP_API_URL` | `https://xxxx.up.railway.app/api` |
+
+4. Deploy. Copy your Vercel URL.
+5. Go back to Railway → Variables → set `FRONTEND_URL` to your Vercel URL
+6. Railway redeploys automatically.
+
+### ✅ Done! Check your backend health:
+```
+https://xxxx.up.railway.app/api/health
+```
+
+---
+
+## 💻 Local Development
+
+### Backend
 ```bash
 cd saffron-backend
 npm install
-cp .env.example .env
-# Edit .env with your MySQL credentials
-npm run dev
+cp .env.example .env    # fill in your MySQL credentials
+npm run dev             # runs on http://localhost:5000
 ```
 
-### 3. Set up the frontend
+### Frontend
 ```bash
-cd ../saffron-frontend
+cd saffron-frontend
 npm install
-npm start
+npm start               # runs on http://localhost:3000
 ```
-
-The app will be running at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
 
 ### Default admin login
 ```
 Email:    admin@saffron.com
 Password: admin123
 ```
-> Change this immediately after first login.
 
 ---
 
-## ⚙️ Environment Variables
+## 🔑 Railway Environment Variables
 
-Copy `saffron-backend/.env.example` to `saffron-backend/.env` and fill in:
+Railway **automatically injects** these when you add a MySQL plugin — you do NOT set these manually:
+- `MYSQL_URL` — full connection string, used by the app automatically
+- `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`
 
-| Variable | Description |
-|---|---|
-| `DB_HOST` | MySQL host (default: localhost) |
-| `DB_USER` | MySQL username |
-| `DB_PASSWORD` | MySQL password |
-| `DB_NAME` | Database name (default: saffron_catering) |
-| `JWT_SECRET` | Long random string for signing tokens |
-| `EMAIL_USER` | Gmail address for sending emails |
-| `EMAIL_PASS` | Gmail App Password (not your regular password) |
-
----
-
-## 🗄️ Database
-
-Tables are **auto-created** on first server start. No migration files needed.
-
-Tables created:
-`users` · `menu_items` · `bookings` · `orders` · `order_items` · `payments` · `gallery` · `blog_posts` · `saved_items`
-
----
-
-## 🌐 API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | /api/auth/register | — | Register |
-| POST | /api/auth/login | — | Login |
-| GET | /api/auth/me | ✅ | My profile |
-| GET | /api/menu | — | All menu items |
-| POST | /api/bookings | Optional | Submit booking |
-| GET | /api/bookings/my | ✅ | My bookings |
-| POST | /api/orders | Optional | Place order |
-| GET | /api/orders/my | ✅ | My orders |
-| GET | /api/customers/stats/dashboard | 👑 | Admin stats |
-
-Full API docs in `saffron-backend/DEPLOYMENT.md`
-
----
-
-## 🚢 Deployment
-
-See `saffron-backend/DEPLOYMENT.md` for full guides on:
-- Railway (easiest, free tier)
-- DigitalOcean / VPS with Nginx + PM2
-- Vercel (frontend)
-- SSL with Let's Encrypt
+You **do** need to set manually:
+- `NODE_ENV=production`
+- `JWT_SECRET=<long random string>`
+- `FRONTEND_URL=<your vercel URL>`
+- `EMAIL_USER` and `EMAIL_PASS` (optional, for booking emails)
 
 ---
 
 ## 🛠️ Tech Stack
 
-**Backend**
-- Node.js + Express
-- MySQL2 (connection pool)
-- JWT + bcryptjs (auth)
-- Multer (file uploads)
-- Nodemailer (emails)
-- Helmet + express-rate-limit (security)
-
-**Frontend**
-- React 18
-- Context API (auth state)
-- Fetch API (no extra libraries)
-- Google Fonts (Playfair Display + DM Sans)
-
----
-
-## 📄 License
-
-MIT — free to use and modify.
+**Backend:** Node.js, Express, MySQL2, JWT, bcryptjs, Multer, Nodemailer, Helmet  
+**Frontend:** React 18, Context API, Fetch API, Google Fonts

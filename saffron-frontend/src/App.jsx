@@ -252,7 +252,7 @@ const SERVICES = [
 ];
 const TESTIMONIALS = [
   { name:'Sarah Mitchell', role:'Bride',          rating:5, text:'Absolutely flawless service. Every guest complimented the food — our wedding was unforgettable.', avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80' },
-  { name:'James Chen',    role:'CEO, TechCorp',  rating:5, text:'We\'ve used Saffron for three corporate retreats. Consistently exceptional quality and professionalism.', avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80' },
+  { name:'James Chen',    role:'CEO, TechCorp',  rating:5, text:'We've used Saffron for three corporate retreats. Consistently exceptional quality and professionalism.', avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80' },
   { name:'Maria Rodriguez',role:'Event Planner', rating:5, text:'My go-to catering partner. The attention to detail and flavor profiles are simply world-class.', avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80' },
   { name:'David Park',    role:'Birthday Host',  rating:5, text:'They turned my 50th into a culinary journey. Simply magical.', avatar:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80' },
 ];
